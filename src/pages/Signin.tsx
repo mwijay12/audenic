@@ -51,7 +51,7 @@ export default function Signin() {
       email: 'mgeni@audenic.com',
       user_metadata: {
         full_name: 'Mgeni Audenic',
-        phone: '+255 712 345 678',
+        phone: '+255 790 942 616',
         marketing_opt_in: true,
       },
     }

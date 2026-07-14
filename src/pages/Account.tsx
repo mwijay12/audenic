@@ -108,7 +108,7 @@ export default function Account() {
           {
             id: 'addr-1',
             recipient_name: 'Mwijay Davie',
-            phone: '+255 712 345 678',
+            phone: '+255 790 942 616',
             line1: 'Plot 45, Mikocheni B',
             line2: 'Karibu na Kibo Complex',
             city: 'Dar es Salaam',

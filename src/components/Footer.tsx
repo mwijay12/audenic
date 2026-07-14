@@ -28,10 +28,10 @@ export default function Footer() {
               worth hearing.
             </h3>
             <a
-              href="mailto:hello@audenic.audio"
+              href="mailto:audenic.audio@gmail.com"
               className="group inline-flex items-center gap-2 sm:gap-3 mt-6 sm:mt-8 text-flame-400 font-display text-lg sm:text-2xl md:text-4xl tracking-tight hover:text-flame-300 transition-colors break-all sm:break-normal"
             >
-              <span className="min-w-0">hello@audenic.audio</span>
+              <span className="min-w-0">audenic.audio@gmail.com</span>
               <ArrowUpRight
                 size={20}
                 className="shrink-0 sm:size-7 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform"

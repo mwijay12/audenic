@@ -6,6 +6,7 @@ import Cursor from './Cursor'
 import CartDrawer from './CartDrawer'
 import SearchModal from './SearchModal'
 import ScrollProgress from './ScrollProgress'
+import AIChatbot from './AIChatbot'
 
 export default function Layout() {
   const { pathname } = useLocation()
@@ -22,6 +23,7 @@ export default function Layout() {
       <Footer />
       <CartDrawer />
       <SearchModal />
+      <AIChatbot />
     </div>
   )
 }
