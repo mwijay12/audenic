@@ -139,7 +139,7 @@ export default function Home() {
       <section className="py-8 border-y border-ink-200/60 bg-cream-100">
         <Marquee
           items={[
-            { label: 'Free shipping', value: 'over $150' },
+            { label: 'Free shipping', value: 'over TSh 200K' },
             { label: 'Lifetime warranty' },
             { label: 'Hand-tuned drivers' },
             { label: '60-day returns' },
