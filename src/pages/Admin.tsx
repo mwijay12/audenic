@@ -13,10 +13,15 @@ import {
   ShoppingBag,
   ExternalLink,
   Edit,
+  Trash2,
+  Plus,
+  GripVertical,
+  X,
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { useSession } from '@/lib/useSession'
-import { formatPrice } from '@/lib/utils'
+import { cn } from '@/lib/utils'
+import { type Product, type ProductCategory } from '@/data/products'
 
 type AdminOrder = {
   id: string
@@ -43,6 +48,13 @@ type AnalyticsEvent = {
   created_at: string
 }
 
+/** TSh price helpers for K display */
+function formatK(amount: number): string {
+  if (amount < 1_000) return `TSh ${amount}`
+  if (amount < 10_000) return `TSh ${(amount / 1_000).toFixed(1)}K`
+  return `TSh ${Math.round(amount / 1_000)}K`
+}
+
 export default function AdminDashboard() {
   const { user, loading: authLoading } = useSession()
   const [activeTab, setActiveTab] = useState<'kpis' | 'orders' | 'subscribers' | 'analytics' | 'products'>('kpis')
@@ -53,14 +65,31 @@ export default function AdminDashboard() {
   const [events, setEvents] = useState<AnalyticsEvent[]>([])
 
   // Product editing state
-  const [adminProducts, setAdminProducts] = useState<any[]>([])
-  const [editingProduct, setEditingProduct] = useState<any | null>(null)
-  const [productForm, setProductForm] = useState({
+  const [adminProducts, setAdminProducts] = useState<Product[]>([])
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const [isCreating, setIsCreating] = useState(false)
+  const [productForm, setProductForm] = useState<Product>({
+    id: '',
+    slug: '',
     name: '',
-    price: 0,
+    category: 'over-ear' as ProductCategory,
     tagline: '',
     description: '',
+    price: 0,
+    rating: 4.0,
+    reviewCount: 0,
+    colors: [],
+    features: [],
+    specs: [],
+    image: '',
+    gallery: [],
   })
+
+  // Temporary inputs for arrays
+  const [newColor, setNewColor] = useState({ name: '', hex: '#0e0d0c' })
+  const [newFeature, setNewFeature] = useState('')
+  const [newSpec, setNewSpec] = useState({ label: '', value: '' })
+  const [newGalleryUrl, setNewGalleryUrl] = useState('')
 
   // Load products list locally
   useEffect(() => {
@@ -204,20 +233,106 @@ export default function AdminDashboard() {
     }
   }
 
-  function handleSaveProductDetails(e: React.FormEvent) {
-    e.preventDefault()
-    if (!editingProduct) return
+  // ---- Product CRUD helpers ----
 
-    const updated = adminProducts.map((p) =>
-      p.id === editingProduct.id ? { ...p, ...productForm } : p
-    )
+  function persistProducts(updated: Product[]) {
     setAdminProducts(updated)
-
     localStorage.setItem('audenic-product-overrides', JSON.stringify(updated))
-    
-    alert('Bidhaa imesasishwa kwa mafanikio!')
+  }
+
+  function handleEditProduct(p: Product) {
+    setEditingProduct(p)
+    setProductForm({ ...p })
+    setIsCreating(false)
+  }
+
+  function handleNewProduct() {
+    setIsCreating(true)
     setEditingProduct(null)
-    window.location.reload()
+    setProductForm({
+      id: 'p-' + Date.now(),
+      slug: '',
+      name: '',
+      category: 'over-ear' as ProductCategory,
+      tagline: '',
+      description: '',
+      price: 0,
+      rating: 4.0,
+      reviewCount: 0,
+      colors: [],
+      features: [],
+      specs: [],
+      image: '',
+      gallery: [],
+    })
+  }
+
+  function handleSaveProduct(e: React.FormEvent) {
+    e.preventDefault()
+    const slug = productForm.slug || productForm.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    const saved: Product = { ...productForm, slug }
+
+    if (isCreating) {
+      const updated = [...adminProducts, saved]
+      persistProducts(updated)
+    } else {
+      const updated = adminProducts.map((p) => (p.id === saved.id ? saved : p))
+      persistProducts(updated)
+    }
+
+    alert(isCreating ? 'Bidhaa mpya imeongezwa!' : 'Bidhaa imesasishwa!')
+    setEditingProduct(null)
+    setIsCreating(false)
+  }
+
+  function handleDeleteProduct(id: string) {
+    if (!confirm('Una uhakika unataka kufuta bidhaa hii?')) return
+    const updated = adminProducts.filter((p) => p.id !== id)
+    persistProducts(updated)
+    if (editingProduct?.id === id) {
+      setEditingProduct(null)
+      setIsCreating(false)
+    }
+  }
+
+  // ---- Color helpers ----
+  function addColor() {
+    if (!newColor.name.trim()) return
+    setProductForm((f) => ({ ...f, colors: [...f.colors, { ...newColor }] }))
+    setNewColor({ name: '', hex: '#0e0d0c' })
+  }
+  function removeColor(idx: number) {
+    setProductForm((f) => ({ ...f, colors: f.colors.filter((_, i) => i !== idx) }))
+  }
+
+  // ---- Feature helpers ----
+  function addFeature() {
+    if (!newFeature.trim()) return
+    setProductForm((f) => ({ ...f, features: [...f.features, newFeature.trim()] }))
+    setNewFeature('')
+  }
+  function removeFeature(idx: number) {
+    setProductForm((f) => ({ ...f, features: f.features.filter((_, i) => i !== idx) }))
+  }
+
+  // ---- Spec helpers ----
+  function addSpec() {
+    if (!newSpec.label.trim() || !newSpec.value.trim()) return
+    setProductForm((f) => ({ ...f, specs: [...f.specs, { ...newSpec }] }))
+    setNewSpec({ label: '', value: '' })
+  }
+  function removeSpec(idx: number) {
+    setProductForm((f) => ({ ...f, specs: f.specs.filter((_, i) => i !== idx) }))
+  }
+
+  // ---- Gallery helpers ----
+  function addGallery() {
+    if (!newGalleryUrl.trim()) return
+    setProductForm((f) => ({ ...f, gallery: [...f.gallery, newGalleryUrl.trim()] }))
+    setNewGalleryUrl('')
+  }
+  function removeGallery(idx: number) {
+    setProductForm((f) => ({ ...f, gallery: f.gallery.filter((_, i) => i !== idx) }))
   }
 
   // Guards
@@ -271,7 +386,7 @@ export default function AdminDashboard() {
               </h1>
             </div>
             <p className="text-xs text-ink-500 mt-2 font-mono uppercase tracking-wider">
-              Telemetry &amp; Database Management
+              Telemetry & Database Management
             </p>
           </div>
           <button
@@ -326,7 +441,6 @@ export default function AdminDashboard() {
             {/* 1. KPIs panel */}
             {activeTab === 'kpis' && (
               <div className="space-y-8">
-                {/* Metric Cards Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                   <KpiCard
                     title="Jumla ya Mauzo"
@@ -354,7 +468,6 @@ export default function AdminDashboard() {
                   />
                 </div>
 
-                {/* Quick actions info */}
                 <div className="bg-white rounded-3xl p-6 border border-ink-100 shadow-sm max-w-2xl">
                   <h3 className="font-display text-lg mb-2">Mfumo wa Telemetry ya Audenic</h3>
                   <p className="text-sm text-ink-600 leading-relaxed mb-4">
@@ -403,7 +516,8 @@ export default function AdminDashboard() {
                           <td className="px-6 py-4 font-mono font-semibold">{formatPrice(o.total_tsh, 'TSh')}</td>
                           <td className="px-6 py-4">
                             <span
-                              className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-wider ${
+                              className={cn(
+                                'inline-flex px-2 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-wider',
                                 o.status === 'delivered'
                                   ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                   : o.status === 'paid'
@@ -411,7 +525,7 @@ export default function AdminDashboard() {
                                   : o.status === 'pending'
                                   ? 'bg-amber-50 text-amber-700 border border-amber-200'
                                   : 'bg-zinc-100 text-zinc-600'
-                              }`}
+                              )}
                             >
                               {o.status}
                             </span>
@@ -515,39 +629,178 @@ export default function AdminDashboard() {
               </div>
             )}
 
+            {/* 5. Products Panel — Full CRUD */}
             {activeTab === 'products' && (
               <div>
-                <h2 className="font-display text-2xl mb-6">Bidhaa na Hifadhi (Products &amp; Inventory)</h2>
-                {editingProduct ? (
-                  <form onSubmit={handleSaveProductDetails} className="space-y-4 max-w-xl">
-                    <h3 className="text-sm font-semibold text-ink-700">Hariri Maelezo ya {editingProduct.name}</h3>
-                    <div>
-                      <label className="block text-xs font-mono uppercase tracking-[0.2em] text-ink-500 mb-1.5">
-                        Jina la Bidhaa
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={productForm.name}
-                        onChange={(e) => setProductForm((f) => ({ ...f, name: e.target.value }))}
-                        className="w-full px-4 py-2 rounded-xl border border-ink-200 text-sm focus:outline-none focus:border-flame-500 bg-white text-ink-900"
-                      />
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="font-display text-2xl">Bidhaa na Hifadhi (Products & Inventory)</h2>
+                  <button
+                    onClick={handleNewProduct}
+                    className="inline-flex items-center gap-2 bg-flame-500 text-cream-50 text-xs px-4 py-2.5 rounded-full hover:bg-flame-600 transition-colors font-semibold"
+                  >
+                    <Plus size={14} />
+                    Ongeza Bidhaa
+                  </button>
+                </div>
+
+                {/* Product Edit / Create Form */}
+                {(editingProduct || isCreating) && (
+                  <form onSubmit={handleSaveProduct} className="space-y-6 max-w-3xl mb-12 p-8 bg-white rounded-3xl border border-ink-100 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-display text-xl">
+                        {isCreating ? 'Ongeza Bidhaa Mpya' : `Hariri: ${editingProduct?.name}`}
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => { setEditingProduct(null); setIsCreating(false) }}
+                        className="text-ink-500 hover:text-ink-900"
+                      >
+                        <X size={20} />
+                      </button>
                     </div>
-                    <div>
-                      <label className="block text-xs font-mono uppercase tracking-[0.2em] text-ink-500 mb-1.5">
-                        Bei (TSh)
-                      </label>
-                      <input
-                        type="number"
-                        required
-                        value={productForm.price}
-                        onChange={(e) => setProductForm((f) => ({ ...f, price: parseInt(e.target.value) || 0 }))}
-                        className="w-full px-4 py-2 rounded-xl border border-ink-200 text-sm focus:outline-none focus:border-flame-500 bg-white text-ink-900"
-                      />
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      {/* Name */}
+                      <div>
+                        <label className="block text-xs font-mono uppercase tracking-[0.2em] text-ink-500 mb-1.5">
+                          Jina la Bidhaa *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={productForm.name}
+                          onChange={(e) => setProductForm((f) => ({ ...f, name: e.target.value }))}
+                          className="w-full px-4 py-2 rounded-xl border border-ink-200 text-sm focus:outline-none focus:border-flame-500 bg-white text-ink-900"
+                        />
+                      </div>
+
+                      {/* Slug */}
+                      <div>
+                        <label className="block text-xs font-mono uppercase tracking-[0.2em] text-ink-500 mb-1.5">
+                          Slug (URL) *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={productForm.slug}
+                          onChange={(e) => setProductForm((f) => ({ ...f, slug: e.target.value }))}
+                          placeholder="Auto-generated if empty"
+                          className="w-full px-4 py-2 rounded-xl border border-ink-200 text-sm focus:outline-none focus:border-flame-500 bg-white text-ink-900 font-mono"
+                        />
+                      </div>
+
+                      {/* Category */}
+                      <div>
+                        <label className="block text-xs font-mono uppercase tracking-[0.2em] text-ink-500 mb-1.5">
+                          Aina (Category) *
+                        </label>
+                        <select
+                          value={productForm.category}
+                          onChange={(e) => setProductForm((f) => ({ ...f, category: e.target.value as ProductCategory }))}
+                          className="w-full px-4 py-2 rounded-xl border border-ink-200 text-sm focus:outline-none focus:border-flame-500 bg-white text-ink-900"
+                        >
+                          <option value="over-ear">Over-Ear</option>
+                          <option value="in-ear">In-Ear</option>
+                          <option value="on-ear">On-Ear</option>
+                          <option value="speaker">Speaker</option>
+                          <option value="soundbar">Soundbar</option>
+                        </select>
+                      </div>
+
+                      {/* Price */}
+                      <div>
+                        <label className="block text-xs font-mono uppercase tracking-[0.2em] text-ink-500 mb-1.5">
+                          Bei (TSh) *
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          value={productForm.price}
+                          onChange={(e) => setProductForm((f) => ({ ...f, price: parseInt(e.target.value) || 0 }))}
+                          className="w-full px-4 py-2 rounded-xl border border-ink-200 text-sm focus:outline-none focus:border-flame-500 bg-white text-ink-900"
+                        />
+                        {productForm.price > 0 && (
+                          <p className="text-[10px] text-ink-500 mt-1 font-mono">{formatK(productForm.price)}</p>
+                        )}
+                      </div>
+
+                      {/* CompareAt */}
+                      <div>
+                        <label className="block text-xs font-mono uppercase tracking-[0.2em] text-ink-500 mb-1.5">
+                          Bei ya Zamani (Compare At — optional)
+                        </label>
+                        <input
+                          type="number"
+                          value={productForm.compareAt || ''}
+                          onChange={(e) => setProductForm((f) => ({ ...f, compareAt: parseInt(e.target.value) || undefined }))}
+                          className="w-full px-4 py-2 rounded-xl border border-ink-200 text-sm focus:outline-none focus:border-flame-500 bg-white text-ink-900"
+                        />
+                      </div>
+
+                      {/* Rating */}
+                      <div>
+                        <label className="block text-xs font-mono uppercase tracking-[0.2em] text-ink-500 mb-1.5">
+                          Rating / 5
+                        </label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          max="5"
+                          value={productForm.rating}
+                          onChange={(e) => setProductForm((f) => ({ ...f, rating: parseFloat(e.target.value) || 0 }))}
+                          className="w-full px-4 py-2 rounded-xl border border-ink-200 text-sm focus:outline-none focus:border-flame-500 bg-white text-ink-900"
+                        />
+                      </div>
+
+                      {/* Review Count */}
+                      <div>
+                        <label className="block text-xs font-mono uppercase tracking-[0.2em] text-ink-500 mb-1.5">
+                          Idadi ya Reviews
+                        </label>
+                        <input
+                          type="number"
+                          value={productForm.reviewCount}
+                          onChange={(e) => setProductForm((f) => ({ ...f, reviewCount: parseInt(e.target.value) || 0 }))}
+                          className="w-full px-4 py-2 rounded-xl border border-ink-200 text-sm focus:outline-none focus:border-flame-500 bg-white text-ink-900"
+                        />
+                      </div>
+
+                      {/* Badge */}
+                      <div>
+                        <label className="block text-xs font-mono uppercase tracking-[0.2em] text-ink-500 mb-1.5">
+                          Badge (e.g. "Best Seller", "New", "Limited")
+                        </label>
+                        <input
+                          type="text"
+                          value={productForm.badge || ''}
+                          onChange={(e) => setProductForm((f) => ({ ...f, badge: e.target.value || undefined }))}
+                          className="w-full px-4 py-2 rounded-xl border border-ink-200 text-sm focus:outline-none focus:border-flame-500 bg-white text-ink-900"
+                        />
+                      </div>
+
+                      {/* Image */}
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-mono uppercase tracking-[0.2em] text-ink-500 mb-1.5">
+                          Picha Kuu (Image URL) *
+                        </label>
+                        <input
+                          type="url"
+                          required
+                          value={productForm.image}
+                          onChange={(e) => setProductForm((f) => ({ ...f, image: e.target.value }))}
+                          className="w-full px-4 py-2 rounded-xl border border-ink-200 text-sm focus:outline-none focus:border-flame-500 bg-white text-ink-900"
+                        />
+                        {productForm.image && (
+                          <img src={productForm.image} alt="preview" className="mt-2 w-24 h-24 object-cover rounded-xl bg-cream-100" />
+                        )}
+                      </div>
                     </div>
+
+                    {/* Tagline */}
                     <div>
                       <label className="block text-xs font-mono uppercase tracking-[0.2em] text-ink-500 mb-1.5">
-                        Tagline / Ujumbe Mfupi
+                        Tagline / Ujumbe Mfupi *
                       </label>
                       <input
                         type="text"
@@ -557,9 +810,11 @@ export default function AdminDashboard() {
                         className="w-full px-4 py-2 rounded-xl border border-ink-200 text-sm focus:outline-none focus:border-flame-500 bg-white text-ink-900"
                       />
                     </div>
+
+                    {/* Description */}
                     <div>
                       <label className="block text-xs font-mono uppercase tracking-[0.2em] text-ink-500 mb-1.5">
-                        Maelezo ya Kina (Description)
+                        Maelezo ya Kina (Description) *
                       </label>
                       <textarea
                         required
@@ -569,23 +824,178 @@ export default function AdminDashboard() {
                         className="w-full px-4 py-2 rounded-xl border border-ink-200 text-sm focus:outline-none focus:border-flame-500 bg-white text-ink-900"
                       />
                     </div>
-                    <div className="flex gap-2">
+
+                    {/* Colors */}
+                    <div>
+                      <label className="block text-xs font-mono uppercase tracking-[0.2em] text-ink-500 mb-2">
+                        Rangi (Colors)
+                      </label>
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {productForm.colors.map((c, i) => (
+                          <span key={i} className="inline-flex items-center gap-1.5 px-3 py-1 bg-cream-100 rounded-full text-xs font-mono">
+                            <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: c.hex }} />
+                            {c.name}
+                            <button type="button" onClick={() => removeColor(i)} className="text-ink-400 hover:text-rose-500">
+                              <X size={12} />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          placeholder="Jina la rangi"
+                          value={newColor.name}
+                          onChange={(e) => setNewColor((c) => ({ ...c, name: e.target.value }))}
+                          className="flex-1 px-3 py-1.5 rounded-xl border border-ink-200 text-xs focus:outline-none focus:border-flame-500 bg-white text-ink-900"
+                        />
+                        <input
+                          type="color"
+                          value={newColor.hex}
+                          onChange={(e) => setNewColor((c) => ({ ...c, hex: e.target.value }))}
+                          className="w-9 h-9 rounded-xl border border-ink-200 cursor-pointer"
+                        />
+                        <button type="button" onClick={addColor} className="text-flame-600 hover:text-flame-500 text-xs font-semibold">
+                          + Ongeza
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Features */}
+                    <div>
+                      <label className="block text-xs font-mono uppercase tracking-[0.2em] text-ink-500 mb-2">
+                        Vipengele (Features)
+                      </label>
+                      <ul className="space-y-1 mb-2">
+                        {productForm.features.map((f, i) => (
+                          <li key={i} className="flex items-center justify-between text-xs text-ink-700 bg-cream-50 px-3 py-1.5 rounded-lg">
+                            <span>{f}</span>
+                            <button type="button" onClick={() => removeFeature(i)} className="text-ink-400 hover:text-rose-500">
+                              <X size={12} />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          placeholder="Feature (e.g. ANC up to 35dB)"
+                          value={newFeature}
+                          onChange={(e) => setNewFeature(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addFeature())}
+                          className="flex-1 px-3 py-1.5 rounded-xl border border-ink-200 text-xs focus:outline-none focus:border-flame-500 bg-white text-ink-900"
+                        />
+                        <button type="button" onClick={addFeature} className="text-flame-600 hover:text-flame-500 text-xs font-semibold">
+                          + Ongeza
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Specs */}
+                    <div>
+                      <label className="block text-xs font-mono uppercase tracking-[0.2em] text-ink-500 mb-2">
+                        Vipimo (Specifications)
+                      </label>
+                      <dl className="space-y-1 mb-2">
+                        {productForm.specs.map((s, i) => (
+                          <div key={i} className="flex items-center justify-between text-xs text-ink-700 bg-cream-50 px-3 py-1.5 rounded-lg">
+                            <dt className="font-semibold">{s.label}:</dt>
+                            <dd className="flex items-center gap-2">
+                              {s.value}
+                              <button type="button" onClick={() => removeSpec(i)} className="text-ink-400 hover:text-rose-500">
+                                <X size={12} />
+                              </button>
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          placeholder="Label (e.g. Driver)"
+                          value={newSpec.label}
+                          onChange={(e) => setNewSpec((s) => ({ ...s, label: e.target.value }))}
+                          className="flex-1 px-3 py-1.5 rounded-xl border border-ink-200 text-xs focus:outline-none focus:border-flame-500 bg-white text-ink-900"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Value (e.g. 40mm)"
+                          value={newSpec.value}
+                          onChange={(e) => setNewSpec((s) => ({ ...s, value: e.target.value }))}
+                          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addSpec())}
+                          className="flex-1 px-3 py-1.5 rounded-xl border border-ink-200 text-xs focus:outline-none focus:border-flame-500 bg-white text-ink-900"
+                        />
+                        <button type="button" onClick={addSpec} className="text-flame-600 hover:text-flame-500 text-xs font-semibold">
+                          + Ongeza
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Gallery */}
+                    <div>
+                      <label className="block text-xs font-mono uppercase tracking-[0.2em] text-ink-500 mb-2">
+                        Matunzio ya Picha (Gallery URLs)
+                      </label>
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {productForm.gallery.map((url, i) => (
+                          <div key={i} className="relative group">
+                            <img src={url} alt="" className="w-16 h-16 object-cover rounded-lg bg-cream-100" />
+                            <button
+                              type="button"
+                              onClick={() => removeGallery(i)}
+                              className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X size={10} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="url"
+                          placeholder="Image URL"
+                          value={newGalleryUrl}
+                          onChange={(e) => setNewGalleryUrl(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addGallery())}
+                          className="flex-1 px-3 py-1.5 rounded-xl border border-ink-200 text-xs focus:outline-none focus:border-flame-500 bg-white text-ink-900"
+                        />
+                        <button type="button" onClick={addGallery} className="text-flame-600 hover:text-flame-500 text-xs font-semibold">
+                          + Ongeza
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Submit */}
+                    <div className="flex gap-3 pt-2">
                       <button
                         type="submit"
-                        className="bg-ink-900 text-cream-50 font-medium text-xs px-5 py-2.5 rounded-full hover:bg-flame-500 transition-colors"
+                        className="bg-ink-900 text-cream-50 font-medium text-sm px-6 py-2.5 rounded-full hover:bg-flame-500 transition-colors"
                       >
-                        Hifadhi Bidhaa
+                        {isCreating ? 'Ongeza Bidhaa' : 'Hifadhi Mabadiliko'}
                       </button>
                       <button
                         type="button"
-                        onClick={() => setEditingProduct(null)}
-                        className="border border-ink-200 text-ink-700 font-medium text-xs px-5 py-2.5 rounded-full hover:bg-ink-50 transition-colors"
+                        onClick={() => { setEditingProduct(null); setIsCreating(false) }}
+                        className="border border-ink-200 text-ink-700 font-medium text-sm px-6 py-2.5 rounded-full hover:bg-ink-50 transition-colors"
                       >
                         Ghairi
                       </button>
+                      {!isCreating && editingProduct && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteProduct(editingProduct.id)}
+                          className="border border-rose-200 text-rose-600 font-medium text-sm px-6 py-2.5 rounded-full hover:bg-rose-50 transition-colors ml-auto"
+                        >
+                          <Trash2 size={14} className="inline mr-1" />
+                          Futa
+                        </button>
+                      )}
                     </div>
                   </form>
-                ) : (
+                )}
+
+                {/* Product List */}
+                {!editingProduct && !isCreating && (
                   <div className="bg-white rounded-3xl border border-ink-100 overflow-hidden shadow-sm">
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
@@ -595,6 +1005,7 @@ export default function AdminDashboard() {
                             <th className="px-6 py-4">Bidhaa</th>
                             <th className="px-6 py-4">Aina (Category)</th>
                             <th className="px-6 py-4">Bei</th>
+                            <th className="px-6 py-4">Rangi</th>
                             <th className="px-6 py-4 text-right">Vitendo</th>
                           </tr>
                         </thead>
@@ -614,21 +1025,43 @@ export default function AdminDashboard() {
                               </td>
                               <td className="px-6 py-4 text-xs font-mono uppercase">{p.category}</td>
                               <td className="px-6 py-4 font-mono font-semibold">{formatPrice(p.price, 'TSh')}</td>
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-1">
+                                  {p.colors.map((c, i) => (
+                                    <span
+                                      key={i}
+                                      className="w-4 h-4 rounded-full border border-ink-200 inline-block"
+                                      style={{ backgroundColor: c.hex }}
+                                      title={c.name}
+                                    />
+                                  ))}
+                                </div>
+                              </td>
                               <td className="px-6 py-4 text-right">
-                                <button
-                                  onClick={() => {
-                                    setEditingProduct(p)
-                                    setProductForm({
-                                      name: p.name,
-                                      price: p.price,
-                                      tagline: p.tagline,
-                                      description: p.description,
-                                    })
-                                  }}
-                                  className="inline-flex items-center gap-1 bg-ink-900 text-cream-50 text-[10px] px-3 py-1 rounded-full hover:bg-flame-500 transition-colors"
-                                >
-                                  Hariri
-                                </button>
+                                <div className="flex justify-end gap-1.5">
+                                  <Link
+                                    to={`/shop/${p.slug}`}
+                                    className="inline-flex items-center gap-1 border border-ink-200 text-ink-600 text-[10px] px-3 py-1 rounded-full hover:bg-ink-50 transition-colors"
+                                    target="_blank"
+                                  >
+                                    <ExternalLink size={10} />
+                                    Tazama
+                                  </Link>
+                                  <button
+                                    onClick={() => handleEditProduct(p)}
+                                    className="inline-flex items-center gap-1 bg-ink-900 text-cream-50 text-[10px] px-3 py-1 rounded-full hover:bg-flame-500 transition-colors"
+                                  >
+                                    <Edit size={10} />
+                                    Hariri
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteProduct(p.id)}
+                                    className="inline-flex items-center gap-1 border border-rose-200 text-rose-600 text-[10px] px-3 py-1 rounded-full hover:bg-rose-50 transition-colors"
+                                  >
+                                    <Trash2 size={10} />
+                                    Futa
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -661,9 +1094,10 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`pb-4 px-2 font-display text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors relative ${
+      className={cn(
+        'pb-4 px-2 font-display text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors relative',
         active ? 'border-ink-900 text-ink-900' : 'border-transparent text-ink-400 hover:text-ink-900'
-      }`}
+      )}
     >
       <Icon size={16} />
       {label}
@@ -694,4 +1128,15 @@ function KpiCard({
       </div>
     </div>
   )
+}
+
+function formatPrice(amount: number, currency: 'TSh' | 'USD' = 'TSh'): string {
+  if (currency === 'TSh') {
+    return `TSh ${new Intl.NumberFormat('en-US').format(Math.round(amount))}`
+  }
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 0,
+  }).format(amount / 100)
 }

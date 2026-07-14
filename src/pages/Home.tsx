@@ -83,7 +83,7 @@ export default function Home() {
                 Starting at
               </p>
               <p className="font-display text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-medium tracking-tightest">
-                $149
+                TSh 20K
               </p>
               <p className="mt-2 text-xs sm:text-sm text-ink-500">Mwanga Buds — True Wireless</p>
             </motion.div>

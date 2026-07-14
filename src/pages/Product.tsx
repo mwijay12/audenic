@@ -5,7 +5,7 @@ import { Star, ArrowRight, Check, Truck, RotateCcw, Shield, ShoppingBag, Heart }
 import SpotlightCard from '@/components/SpotlightCard'
 import MagnetButton from '@/components/MagnetButton'
 import Reveal from '@/components/Reveal'
-import { products } from '@/data/products'
+import { products, extraProducts } from '@/data/products'
 import { formatPrice, cn } from '@/lib/utils'
 import { useCart } from '@/store/cart'
 import { useWishlist } from '@/store/wishlist'
@@ -13,7 +13,11 @@ import { useSession } from '@/lib/useSession'
 
 export default function Product() {
   const { slug } = useParams()
-  const product = useMemo(() => products.find((p) => p.slug === slug), [slug])
+
+  // Merge all products so every slug resolves to a dedicated page
+  const allProducts = useMemo(() => [...products, ...extraProducts], [])
+  const product = useMemo(() => allProducts.find((p) => p.slug === slug), [slug, allProducts])
+
   const [color, setColor] = useState(product?.colors[0] ?? { name: '', hex: '#000' })
   const [imgIdx, setImgIdx] = useState(0)
   const [orderState, setOrderState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
@@ -30,6 +34,9 @@ export default function Product() {
     return (
       <div className="container-fluid py-32 text-center">
         <h1 className="font-display text-5xl">Not found.</h1>
+        <p className="mt-4 text-ink-500 max-w-md mx-auto">
+          Hakuna bidhaa inayolingana na kiungo hiki. Tafadhali angalia duka letu.
+        </p>
         <Link to="/shop" className="btn-outline mt-8 inline-flex">
           Back to shop
         </Link>
@@ -229,7 +236,7 @@ export default function Product() {
             <div className="mt-6 grid grid-cols-3 gap-3 text-center text-xs text-ink-600">
               <div className="flex flex-col items-center gap-1">
                 <Truck size={16} />
-                <span>Free ship $150+</span>
+                <span>Free ship TSh 200K+</span>
               </div>
               <div className="flex flex-col items-center gap-1">
                 <RotateCcw size={16} />
