@@ -33,7 +33,8 @@ export const supabase = createClient(
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
-      storage: window.localStorage,
+      // Guard for non-browser environments (SSR / prerender)
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
       storageKey: 'audenic-auth',
     },
   }

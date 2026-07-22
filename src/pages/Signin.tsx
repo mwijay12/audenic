@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -9,11 +9,20 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
+import { useSession } from '@/lib/useSession'
 
 export default function Signin() {
   const [params] = useSearchParams()
   const next = params.get('next') || '/account'
   const navigate = useNavigate()
+  const { session, loading: sessionLoading } = useSession()
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (!sessionLoading && session) {
+      navigate(next, { replace: true })
+    }
+  }, [session, sessionLoading, navigate, next])
 
   const [email, setEmail] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -65,16 +74,19 @@ export default function Signin() {
     return (
       <section className="max-w-2xl mx-auto px-6 py-24 text-center">
         <Lock className="mx-auto mb-6 text-ink-400" size={48} />
-        <h1 className="font-display text-3xl mb-4">Akaunti ya Demo</h1>
-        <p className="text-ink-600 mb-6">
-          Backend haijasanidiwa sasa. Unaweza kuingia kama mtumiaji wa majaribio (Demo Mode) ili kujaribu vipengele vyote.
+        <h1 className="font-display text-3xl mb-2">Demo Mode / Akaunti ya Demo</h1>
+        <p className="text-ink-600 mb-2">
+          The backend is not configured yet. You can sign in as a demo user to explore all features.
+        </p>
+        <p className="text-ink-500 text-sm mb-6">
+          (Backend haijasanidiwa. Ingia kama mtumiaji wa majaribio.)
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
           <button
             onClick={handleDemoLogin}
             className="inline-flex items-center gap-2 bg-ink-900 text-cream-50 font-medium text-sm px-7 py-3.5 rounded-full hover:bg-flame-500 transition-colors"
           >
-            Ingia kama Demo User
+            Continue as Demo User
             <ArrowRight size={16} />
           </button>
           <Link
@@ -82,7 +94,7 @@ export default function Signin() {
             className="inline-flex items-center gap-2 text-sm font-mono uppercase tracking-[0.2em] text-ink-500 hover:text-ink-900 transition-colors"
           >
             <ArrowLeft size={14} />
-            Rudi nyumbani
+            Back home
           </Link>
         </div>
       </section>

@@ -22,13 +22,12 @@ export default function Reveal({
 }: Props) {
   const ref = useRef(null)
   const variants: Variants = {
-    hidden: { opacity: 0, y, filter: 'blur(8px)' },
+    hidden: { opacity: 0, y },
     visible: {
       opacity: 1,
       y: 0,
-      filter: 'blur(0px)',
       transition: {
-        duration: 0.9,
+        duration: 0.75,
         delay,
         ease: [0.16, 1, 0.3, 1],
       },

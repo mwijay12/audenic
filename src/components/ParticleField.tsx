@@ -28,8 +28,12 @@ export default function ParticleField({
     if (reduceMotion) return
 
     let raf = 0
+    let paused = false
     const dpr = Math.min(window.devicePixelRatio || 1, 2)
     const actualCount = isMobile ? Math.floor(count / 2) : count
+    // Connection threshold squared — avoids Math.hypot in the hot loop
+    const CONNECT_DIST = 110
+    const CONNECT_DIST_SQ = CONNECT_DIST * CONNECT_DIST
 
     let w = 0
     let h = 0
@@ -56,6 +60,15 @@ export default function ParticleField({
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseout', onLeave)
 
+    // Pause when tab is not visible
+    const onVisibility = () => {
+      paused = document.hidden
+      if (!paused && raf === 0) {
+        raf = requestAnimationFrame(draw)
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+
     type P = { x: number; y: number; vx: number; vy: number; r: number }
     const particles: P[] = Array.from({ length: actualCount }, () => ({
       x: Math.random() * w,
@@ -66,6 +79,10 @@ export default function ParticleField({
     }))
 
     const draw = () => {
+      if (paused) {
+        raf = 0
+        return
+      }
       ctx.clearRect(0, 0, w, h)
       for (const p of particles) {
         p.x += p.vx
@@ -98,16 +115,17 @@ export default function ParticleField({
         ctx.fill()
       }
 
-      // Connect nearby particles
+      // Connect nearby particles — dist² check first to skip Math.hypot in most cases
       for (let i = 0; i < particles.length; i++) {
         for (let j = i + 1; j < particles.length; j++) {
           const a = particles[i]
           const b = particles[j]
           const dx = a.x - b.x
           const dy = a.y - b.y
-          const d = Math.hypot(dx, dy)
-          if (d < 110) {
-            ctx.strokeStyle = `rgba(${color}, ${0.12 * (1 - d / 110)})`
+          const dSq = dx * dx + dy * dy
+          if (dSq < CONNECT_DIST_SQ) {
+            const d = Math.sqrt(dSq)
+            ctx.strokeStyle = `rgba(${color}, ${0.12 * (1 - d / CONNECT_DIST)})`
             ctx.lineWidth = 0.5
             ctx.beginPath()
             ctx.moveTo(a.x, a.y)
@@ -125,6 +143,7 @@ export default function ParticleField({
       ro.disconnect()
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseout', onLeave)
+      document.removeEventListener('visibilitychange', onVisibility)
     }
   }, [count, color])
 

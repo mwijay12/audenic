@@ -48,10 +48,16 @@ export function useSession() {
       }
       checkDemo()
       window.addEventListener(DEMO_AUTH_EVENT, checkDemo)
-      window.addEventListener('storage', checkDemo)
+      // Filter storage events to only the demo session key — avoids re-renders on unrelated writes
+      const onStorage = (e: StorageEvent) => {
+        if (e.key === null || e.key === 'audenic-demo-session') {
+          checkDemo()
+        }
+      }
+      window.addEventListener('storage', onStorage)
       return () => {
         window.removeEventListener(DEMO_AUTH_EVENT, checkDemo)
-        window.removeEventListener('storage', checkDemo)
+        window.removeEventListener('storage', onStorage)
       }
     }
 
